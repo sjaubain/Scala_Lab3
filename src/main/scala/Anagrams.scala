@@ -37,7 +37,12 @@ object Anagrams extends App {
    *  number of occurrences, but the characters appear in sorted order.
    */
 
-  def fingerPrint(s: Word): FingerPrint = s.toLowerCase.sorted
+  def fingerPrint(s: Word): FingerPrint = s
+    .toLowerCase
+    .replaceAll("[.,!?*]", " ") // Remove punctuation.
+    .replaceAll(" +|[']", " ")  // Remove multiple spaces and replace apostrophes by a space.
+    .sorted
+
   def fingerPrint(s: Sentence): FingerPrint = fingerPrint(s.flatten.mkString)
 
 
@@ -56,7 +61,7 @@ object Anagrams extends App {
   val matchingWords: Map[FingerPrint, List[Word]] = dictionary.groupBy(fingerPrint) // group by crée la map
 
   /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] =
+  def wordAnagrams(word: Word): List[Word] = matchingWords.getOrElse(fingerPrint(word), List())
 
   // Test code with for example:
   // println(wordAnagrams("eta"))
@@ -76,7 +81,23 @@ object Anagrams extends App {
    *  in the example above could have been displayed in some other order.
    */
 
-  def subseqs(fp: FingerPrint): List[FingerPrint] = ???
+  def subseqs(fp: String): List[String] = {
+
+    // We use a Set to remove duplicated elements
+    def subseqsWithoutDuplicate(fp: String): Set[String] = {
+      if (fp.length == 0)
+        Set("")
+      else {
+        for {
+          firstChar <- Set("", fp(0)) // We pick either first char or empty string
+          remaining <- subseqs(fp.substring(1))
+        } yield firstChar + remaining // Then we concatenate recursively with remaining chars
+      }
+    }
+
+    // Finally, to respect the List[String] signature
+    subseqsWithoutDuplicate(fp).toList
+  }
 
 
   // Test code with for example:
@@ -90,7 +111,14 @@ object Anagrams extends App {
    *  appear in `x`.
    */
 
-  def subtract(x: FingerPrint, y: FingerPrint): FingerPrint = ???
+  def subtract(x: String, y: String): String = (x, y) match {
+    case ("", str) => "" // We are at the end of x -> return empty string (nothing left to be removed in x)
+    case (str, "") => str // We are at the end of y -> return x (nothing left to subtract in y)
+    case (a, b) => {
+      if (a(0) == b(0)) subtract(a drop 1, b drop 1)
+      else a(0) + subtract(a drop 1, b)
+    }
+  }
 
   // Test code with for example:
   // println(subtract("aabbcc", "abc"))
@@ -115,11 +143,28 @@ object Anagrams extends App {
    *  Note: There is only one anagram of an empty sentence.
    */
 
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
+
+    val flattenSentence = fingerPrint(sentence)
+
+    // Internal function to handle a single string and not a list of string
+    def loop(flattenSentence: FingerPrint): List[Sentence] = {
+      if(flattenSentence.isEmpty)
+        List(List())
+      else
+      for {
+        subseq <- subseqs(flattenSentence) // go through all subsequences
+        validWord <- wordAnagrams(subseq)  // and through all worlds with such a fingerprint
+        remaining <- loop(subtract(flattenSentence, subseq)) // then recursive call after removing subseq from sentence
+      } yield validWord :: remaining // construct list
+    }
+
+    loop(flattenSentence)
+  }
 
   // Test code with for example:
   // println(sentenceAnagrams(List("eat", "tea")))
-  // println(sentenceAnagrams(List("you", "olive")))
+  println(sentenceAnagrams(List("you", "olive")))
   // println(sentenceAnagrams(List("I", "love", "you")))
 
 }
